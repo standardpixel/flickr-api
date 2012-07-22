@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<meta name="viewport" content="width=1036">
+	<title>API Module Test</title>
+	<style>
+		body { 
+			font-family: "HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", Helvetica, Arial, "Lucida Grande", sans-serif; 
+			font-weight: 300;
+			font-size:13px;
+			color:#333;
+		}
+	</style>
+</head>
+<body>
+	<header class="structure">
+		<h1>API Module Test</h1>
+	</header>
+	
+	<article class="structure">
+		
+		
+		
+	</article>
+
+	<script src="flickr_api2.js" type="text/javascript" charset="utf-8"></script>
+	
+	<script>
+		var flickrAPI = new F.FlickrAPI({
+			api_key : 'a0872f4e68c50cd43ea10993ff13b400'
+		});
+		
+		flickrAPI.callMethod('flickr.panda.getPhotos', {
+			panda_name : 'ling ling'
+		}, function(e) {
+			console.log(e);
+		});
+	</script>
+
+</body>
+</html>

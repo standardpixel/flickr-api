@@ -8,11 +8,11 @@
 	*
 	*/
 	
-	window.F = window.F || {};
+	F = {};
 	
 	F.log = F.log || function(msg, type) {
-		if(window.console && window.console.log) {
-			window.console.log('Flickr API Error:', type, msg);
+		if(window.console && window.console.error) {
+			window.console.error( msg );
 		}
 	}
 	
@@ -86,17 +86,45 @@
 			return out;
 		}
 		
+		function getXHR() {
+			var crossxhr = false;
+			
+			if( window.XMLHttpRequest ) {
+				crossxhr = new XMLHttpRequest();
+				
+				if( crossxhr.overrideMimeType ) {
+					crossxhr.overrideMimeType( 'text/xml' );
+				}
+				
+			} else if( window.ActiveXObject ) {
+			
+				try {
+					crossxhr = new ActiveXObject('Msxml2.XMLHTTP');
+				} catch( e ) {
+			
+					try {
+						crossxhr = new ActiveXObject('Microsoft.XMLHTTP');
+					} catch( e ) {
+						crossxhr = false;
+					}
+					
+				}
+			}
+			
+			return crossxhr;
+		}
+		
 		/***
 		* Globals
 		***/
 		
-		F.flickrAPITransactions = {};
-		F.flickrAPIResponses    = {};
+		F.flickrAPI2Transactions = {};
+		F.flickrAPIResponses     = {};
 		
 		var public_interface, default_config,
 		    subscriptions  = {},
 		    transaction_id = 1,
-		    transactions   = F.flickrAPITransactions;
+		    transactions   = F.flickrAPI2Transactions;
 		
 		/*
 		*  Merge defaults into the config passed on 
@@ -105,11 +133,12 @@
 		config = merge( default_config, {
 			api_uri       : 'http://api.flickr.com/services/rest/',
 			api_arguments : {
-				format     :'json',
-				clientType :'js-flickrapi-module',
+				format     : 'json',
+				clientType : 'js-flickrapi-module',
 				api_key    : config.api_key
 			},
-			string_prefix : 'flapi2cb' + (new Date()).getTime()
+			string_prefix : 'flapi2cb' + ( new Date() ).getTime(),
+			timout : 10000
 		} );
 		
 		/***
@@ -162,14 +191,14 @@
 			
 		}
 		
-		function unsubscribe_from_event( method, callback ) {
+		function unsubscribe_from_event( event_name, callback ) {
 			
 			var new_array = [],
 			    subs, sub;
 			
-			if( isArray( subscriptions[ event ] ) ) {
+			if( isArray( subscriptions[ event_name ] ) ) {
 				
-				subs = subscriptions[ event ];
+				subs = subscriptions[ event_name ];
 				
 				for( var i=0, l=subs.length; l > i; i++ ) {
 					
@@ -183,7 +212,7 @@
 					
 				}
 				
-				subscriptions[ event ] = new_array;
+				subscriptions[ event_name ] = new_array;
 				
 			}
 			
@@ -195,11 +224,31 @@
 			
 			if( isObject( api_response.args ) && isObject( api_response.args.response ) && api_response.args.response.stat !== 'fail' ) {
 				
-				callback.apply( scope, [ api_response.args.response ] );
+				if( isObject( callback ) && isFunction( callback.success ) ) {
+					
+					callback.success.apply( scope, [ api_response.args.response ] );
+					
+				} else if( isFunction( callback ) ) {
+					
+					callback.apply( scope, [ api_response.args.response ] );
+					
+				} else {
+					
+					F.log('API request was successful but there was no valid callback to use');
+					
+				}
 				
 			} else {
 				
-				F.log( api_response.args.response.message );
+				if( isObject( callback ) && isFunction(callback.failure) ) {
+					
+					callback.failure.apply( scope, [ api_response.args.response ] );
+					
+				} else {
+					
+					F.log( api_response.args.response.message );
+					
+				}
 				
 			}
 			
@@ -207,6 +256,27 @@
 		
 		function do_post_request( method, args, callback, scope ) {
 			
+			var client   = new getXHR();
+			
+			client.onreadystatechange = function () {
+				
+				if( this.readyState == this.DONE ) {
+					
+					if( this.status == 200 && this.responseText.length ) {
+						// success!
+						eval( 'var response=' + this.responseText );
+						processAPIResponse( { args : response }, callback, scope );
+						return;
+					}
+			
+					// something went wrong
+					console.log('fail');
+					
+				}
+			};
+			
+			client.open( 'POST', config.api_uri + '?' + serializeObject( merge( config.api_arguments, args, { method : method } ) ) );
+			client.send();
 		}
 		
 		function do_get_request( method, args, callback, scope ) {
@@ -215,23 +285,42 @@
 			    first_node     = document.getElementsByTagName( 'script' )[ 0 ],
 			    transaction_id = getNewTransactionId(),
 			    function_name  = config.string_prefix + '_' + transaction_id,
-			    event_name     = 'get-request-complete';
+			    event_name     = 'get-request-complete',
+			    scope          = scope || this,
+			    timeout_id, wrapped_callback;
 			
 			args.method = method;
 			
 			args = merge( config.api_arguments, args, {
 				
-				jsoncallback : 'F.flickrAPITransactions.' + function_name
+				jsoncallback : 'F.flickrAPI2Transactions.' + function_name
 			
 			} );
 			
-			subscribe_to_event( event_name, function( r ) {
+			wrapped_callback = function( r ) {
 				
 				processAPIResponse( r, callback, scope );
 				
-			}, scope );
+			};
 			
-			F.flickrAPITransactions[ function_name ] = function( r ) {
+			subscribe_to_event( event_name, wrapped_callback, scope );
+			
+			timeout_id = setTimeout( function() {
+			
+				if( isObject( callback ) && isFunction( callback.timeout ) ) {
+					
+					callback.timeout.apply( scope, args );
+					
+				} else {
+					
+					F.log( 'Request timed out.' );
+					unsubscribe_from_event( event_name, wrapped_callback );
+					
+				}
+			
+			}, config.timout );
+			
+			F.flickrAPI2Transactions[ function_name ] = function( r ) {
 				
 				fire_event( event_name, {
 					request_id     : transaction_id,
@@ -240,14 +329,15 @@
 					request_method : method
 				} );
 				
-				delete F.flickrAPITransactions[ function_name ];
+				clearTimeout( timeout_id );
 				
-				unsubscribe_from_event( event_name, callback );
+				delete F.flickrAPI2Transactions[ function_name ];
+				unsubscribe_from_event( event_name, wrapped_callback );
 				
 			};
 			
 			new_node.id  = config.string_prefix + '_node';
-			new_node.src = config.api_uri + '?' + serializeObject(args);
+			new_node.src = config.api_uri + '?' + serializeObject( args );
 			
 			/*
 			*  Cute trick to make sure this works in many implementations

@@ -1,4 +1,6 @@
 (function() {
+	'use strict';
+	
 	/*
 	*
 	* Flickr API Module 2
@@ -8,7 +10,7 @@
 	*
 	*/
 	
-	F = {};
+	var F = {};
 	
 	F.log = F.log || function(msg, type) {
 		if(console && console.error) {
@@ -386,5 +388,8 @@
 	
 	if(module && module.exports) { 
 		module.exports = F.FlickrAPI; 
+	} else if(window) {
+		window.F = window.F || F;
+		window.F.FlickrAPI = F.FlickrAPI;
 	}
 }());

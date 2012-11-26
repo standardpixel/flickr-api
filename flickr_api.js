@@ -11,8 +11,8 @@
 	F = {};
 	
 	F.log = F.log || function(msg, type) {
-		if(window.console && window.console.error) {
-			window.console.error( msg );
+		if(console && console.error) {
+			console.error( msg );
 		}
 	}
 	
@@ -130,6 +130,11 @@
 		*  Merge defaults into the config passed on 
 		*  instantiation
 		*/
+		
+		if(!isObject(config) || !isString(config.flickr_api)) {
+			F.log('An API key is required', 'error');
+		}
+		
 		config = merge( default_config, {
 			api_uri       : 'http://api.flickr.com/services/rest/',
 			api_arguments : {
@@ -377,5 +382,9 @@
 		}
 		
 		return public_interface;
+	}
+	
+	if(module && module.exports) { 
+		module.exports = F.FlickrAPI; 
 	}
 }());

@@ -1,14 +1,19 @@
 var should     = require("should"),
-    flickr_api = require('../flickr_api.js');
+    FlickrAPI  = require('../flickr_api.js'),
+	flickr_api;
 
-describe('Flickr Scope', function(){
+describe('Making sure the Flickr API', function(){
 	
-	it('Flickr scope should exist', function() {
-		should.exist(F);
+	it('is loaded', function() {
+		FlickrAPI.should.be.a('function');
 	});
 	
-	it('Flickr api should should exist inside Flickr scope', function() {
-		F.should.have.property('FlickrAPI');
+	it('instantiates', function() {
+		flickr_api = new FlickrAPI({
+			flickr_api : '6ded95f2901a334b25f2b058751c5012' //Api key for tests only
+		});
+		
+		flickr_api.should.be.a('object'); 
 	});
 
 });
